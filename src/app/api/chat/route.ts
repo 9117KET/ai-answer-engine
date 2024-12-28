@@ -20,25 +20,48 @@ export async function POST(req: Request) {
     // Log a message to the console indicating a message was received
     console.log("Message received:", message);
 
+    // Declare scrapedContent variable at the start
+    let scrapedContent = ""; // Initialize with empty string
+
     const url = message.match(urlPattern);
     if (url) {
       console.log("Url found", url);
-      const scrapedContent = await scraperUrl(url);
-      console.log("scraped content", scrapedContent)
+      const scraperResponse = await scraperUrl(url);
+      console.log("scraper response:", scraperResponse);
+      scrapedContent = scraperResponse.content;
+      console.log("scraped content:", scrapedContent);
     }
+
+    //Extracting the user's query by removing the url if present
+    const userQuery = message.replace(url ? url[0] : "", "").trim();
+
+    const prompt = `
+    Answer my question: "${userQuery}"
+    Based on the following content:
+    <content>
+    ${scrapedContent}
+    </content>
+    `;
+
+    console.log("prompt:", prompt);
+
     // Get the response from the Groq client
     const response = await getGroqResponse(message);
 
     // Respond with a JSON object containing the received message
     return NextResponse.json({ message: response });
-  } catch (error) {
+  } catch (error: unknown) {
     // Log the error with more details
-    console.error("Error processing request:", error.message || error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error processing request:", errorMessage);
 
     // Respond with a more detailed error message
-    return NextResponse.json({
-      message: "Error processing request",
-      error: error.message || "Unknown error",
-    });
+    return NextResponse.json(
+      {
+        message: "Error processing request",
+        error: errorMessage,
+      },
+      { status: 500 }
+    );
   }
 }

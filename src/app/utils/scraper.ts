@@ -81,7 +81,7 @@ export async function scraperUrl(url: string) {
     ].join(" ");
 
     // Clean and truncate the combined content to a maximum length
-    combinedContent = cleanText(combinedContent).slice(0, 100000);
+    combinedContent = cleanText(combinedContent).slice(0, 40000);
 
     // Return the structured data
     return {
