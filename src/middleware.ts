@@ -33,19 +33,31 @@ export async function middleware(request: NextRequest) {
       ? NextResponse.next()
       : NextResponse.json(
           {
-            error:
-              "Too many requests within a short period, please try again later",
+            error: "Rate limit exceeded",
+            details: {
+              limit,
+              remaining: 0,
+              reset,
+              retryAfter: Math.ceil((reset - Date.now()) / 1000),
+              message:
+                "Too many requests within a short period, please try again later",
+            },
           },
           {
             status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*", // Ensure frontend can read the headers
+              "Access-Control-Expose-Headers":
+                "X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After",
+            },
           }
         );
 
-    //add rate limit info to response headers
+    // Add rate limit info to all responses (success or failure)
     response.headers.set("X-RateLimit-Limit", limit.toString());
     response.headers.set("X-RateLimit-Remaining", remaining.toString());
     response.headers.set("X-RateLimit-Reset", reset.toString());
-    response.headers.set("X-RateLimit-Policy", "10 requests per 60 seconds");
     response.headers.set(
       "Retry-After",
       Math.ceil((reset - Date.now()) / 1000).toString()
