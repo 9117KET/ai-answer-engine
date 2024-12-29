@@ -4,22 +4,65 @@
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { Redis } from "@upstash/redis";
+import { Ratelimit } from "@upstash/ratelimit";
+
+console.log("Redis URL:", process.env.UPSTASH_REDIS_REST_URL);
+console.log(
+  "Redis Token:",
+  process.env.UPSTASH_REDIS_REST_TOKEN ? "exists" : "missing"
+);
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
+
+const ratelimit = new Ratelimit({
+  redis: redis,
+  limiter: Ratelimit.slidingWindow(5, "60s"),
+  analytics: true,
+});
 
 export async function middleware(request: NextRequest) {
   try {
+    const ip = request.headers.get("x-forwarded-for") ?? "127.0.0.1";
+    const { success, limit, reset, remaining } = await ratelimit.limit(ip);
 
-    const response = NextResponse.next();
+    const response = success
+      ? NextResponse.next()
+      : NextResponse.json(
+          {
+            error:
+              "Too many requests within a short period, please try again later",
+          },
+          {
+            status: 429,
+          }
+        );
+
+    //add rate limit info to response headers
+    response.headers.set("X-RateLimit-Limit", limit.toString());
+    response.headers.set("X-RateLimit-Remaining", remaining.toString());
+    response.headers.set("X-RateLimit-Reset", reset.toString());
+    response.headers.set("X-RateLimit-Policy", "10 requests per 60 seconds");
+    response.headers.set(
+      "Retry-After",
+      Math.ceil((reset - Date.now()) / 1000).toString()
+    );
 
     return response;
-
-
-
   } catch (error) {
-
-
+    console.error("Rate limiting error:", error);
+    // Log more details about the error
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
+    // Return next response on error to prevent blocking requests
+    return NextResponse.next();
   }
 }
-
 
 // Configure which paths the middleware runs on
 export const config = {
