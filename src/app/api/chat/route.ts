@@ -9,6 +9,11 @@ import { scraperUrl, urlPattern } from "@/app/utils/scraper";
 
 export async function POST(req: Request) {
   try {
+    // Add API key validation at the start
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error("GROQ_API_KEY environment variable is not configured");
+    }
+
     // Attempt to parse the JSON body of the incoming request
     const { message } = await req.json();
 
