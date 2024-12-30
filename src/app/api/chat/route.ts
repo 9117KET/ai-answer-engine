@@ -36,12 +36,34 @@ export async function POST(req: Request) {
     const userQuery = message.replace(url ? url[0] : "", "").trim();
 
     const prompt = `
-    Answer my question: "${userQuery}"
-    Based on the following content:
-    <content>
-    ${scrapedContent}
-    </content>
-    `;
+You are an academic expert assistant. Your task is to answer questions based on the provided content.
+
+Context:
+${scrapedContent}
+
+Question: "${userQuery}"
+
+Please format your response following these guidelines:
+1. Start with a clear, direct answer
+2. Support your answer with specific evidence from the provided context
+3. Use markdown formatting for better readability:
+   - Use headers (##) for sections
+   - Use bullet points where appropriate
+   - Use bold for emphasis
+   - Quote relevant text using > blockquotes
+4. If the context doesn't contain enough information to answer the question fully, clearly state this
+5. Always cite specific parts of the context when making claims
+
+Response format:
+## Answer
+[Direct answer to the question]
+
+## Supporting Evidence
+[Evidence from the context with quotes]
+
+## Additional Context
+[Any relevant additional information or caveats]
+`;
 
     console.log("prompt:", prompt);
 

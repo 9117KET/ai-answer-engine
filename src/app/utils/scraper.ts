@@ -110,7 +110,7 @@ export async function scraperUrl(url: string) {
     await cacheContent(url, scrapedContent);
 
     return scrapedContent;
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error(`Error scraping ${url}:`, error);
     return {
       url,
@@ -118,7 +118,7 @@ export async function scraperUrl(url: string) {
       heading: { h1: "", h2: "" },
       metaDescription: "",
       content: "",
-      error: `Failed to scrape URL: ${error.message || "Unknown error"}`,
+      error: `Failed to scrape URL: ${error instanceof Error ? error.message : "Unknown error"}`,
       cachedAt: Date.now(),
     };
   }
@@ -156,17 +156,17 @@ async function getCachedContent(url: string): Promise<ScrapedContent | null> {
     logger.info(`Cache hit - Found cached content for: ${url}`);
 
     //Handling both string and object response from Redis
-    let parsed: any;
+    let parsed: ScrapedContent | null;
     if (typeof cached === "string") {
       try {
-        parsed = JSON.parse(cached);
+        parsed = JSON.parse(cached) as ScrapedContent;
       } catch (parseError) {
         logger.error(`JSON parse error for cached content: ${parseError}`);
         await redis.del(cacheKey);
         return null;
       }
     } else {
-      parsed = cached;
+      parsed = cached as ScrapedContent;
     }
 
     if (isValidScrapedContent(parsed)) {
@@ -185,17 +185,19 @@ async function getCachedContent(url: string): Promise<ScrapedContent | null> {
 }
 
 // Add missing interface validation function
-function isValidScrapedContent(content: any): content is ScrapedContent {
-  return (
-    content &&
-    typeof content.url === "string" &&
-    typeof content.title === "string" &&
-    typeof content.content === "string" &&
-    content.heading &&
-    typeof content.heading.h1 === "string" &&
-    typeof content.heading.h2 === "string" &&
-    typeof content.metaDescription === "string" &&
-    (content.error === null || typeof content.error === "string")
+function isValidScrapedContent(content: unknown): content is ScrapedContent {
+  if (!content || typeof content !== "object") return false;
+  const c = content as Partial<ScrapedContent>;
+  return !!(
+    typeof c.url === "string" &&
+    typeof c.title === "string" &&
+    typeof c.content === "string" &&
+    c.heading !== undefined &&
+    c.heading !== null &&
+    typeof c.heading.h1 === "string" &&
+    typeof c.heading.h2 === "string" &&
+    typeof c.metaDescription === "string" &&
+    (c.error === null || typeof c.error === "string")
   );
 }
 
